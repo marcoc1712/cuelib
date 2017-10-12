@@ -20,7 +20,7 @@ package jwbroek.cuelib;
 
 import java.io.File;
 import java.io.FileFilter;
-import java.io.FileReader;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -38,6 +38,7 @@ import java.util.regex.Pattern;
 
 import jwbroek.io.FileSelector;
 import jwbroek.util.LogUtil;
+import org.apache.commons.io.input.BOMInputStream;
 
 /**
  * Parser for cue sheets.
@@ -184,14 +185,25 @@ final public class CueParser
   public static CueSheet parse(final InputStream inputStream) throws IOException
   {
     CueParser.logger.entering(CueParser.class.getCanonicalName(), "parse(InputStream)", inputStream);
+    BOMInputStream bOMInputStream = new BOMInputStream(inputStream);
     
-    final CueSheet result = CueParser.parse(new LineNumberReader(new InputStreamReader(inputStream)));
+    final CueSheet result;
+    
+    if (bOMInputStream.hasBOM()) {
+     // has a UTF-8 BOM
+     result = CueParser.parse(new LineNumberReader(new InputStreamReader(inputStream,"UTF8")));
+    
+    } else{
+     result = CueParser.parse(new LineNumberReader(new InputStreamReader(inputStream)));
+    }
+    
+    //final CueSheet result = CueParser.parse(new LineNumberReader(new InputStreamReader(inputStream)));
     
     CueParser.logger.exiting(CueParser.class.getCanonicalName(), "parse(InputStream)", result);
     
     return result;
   }
-  
+ 
   /**
    * Parse a cue sheet file.
    * @param file A cue sheet file.
@@ -202,7 +214,20 @@ final public class CueParser
   {
     CueParser.logger.entering(CueParser.class.getCanonicalName(), "parse(File)", file);
     
-    final CueSheet result = CueParser.parse(new LineNumberReader(new FileReader(file)));
+    InputStream inputStream = new FileInputStream(file);
+    BOMInputStream bOMInputStream = new BOMInputStream(inputStream);
+    
+    final CueSheet result;
+    
+    if (bOMInputStream.hasBOM()) {
+     // has a UTF-8 BOM
+     result = CueParser.parse(new LineNumberReader(new InputStreamReader(inputStream,"UTF8")));
+    
+    } else{
+     result = CueParser.parse(new LineNumberReader(new InputStreamReader(inputStream)));
+    }
+        
+    //final CueSheet result = CueParser.parse(new LineNumberReader(new FileReader(file)));
     CueParser.logger.exiting(CueParser.class.getCanonicalName(), "parse(File)", result);
     return result;
   }
@@ -1009,7 +1034,13 @@ final public class CueParser
     
     CueParser.logger.exiting(CueParser.class.getCanonicalName(), "parseRemGenre(LineOfInput)");
   }
-  
+   private static void parseRemOther(final LineOfInput input){
+   
+        CueParser.logger.entering(CueParser.class.getCanonicalName(), "parseRemOther(LineOfInput)", input);
+        
+        
+        CueParser.logger.exiting(CueParser.class.getCanonicalName(), "parseRemOther(LineOfInput)");
+   }
   /**
    * Parse the REM command. Will also parse a number of non-standard commands used by Exact Audio Copy.
    *
@@ -1043,6 +1074,8 @@ final public class CueParser
           if (contains(input, PATTERN_REM_COMMENT))
           {
             parseRemComment(input);
+          } else {
+            parseRemOther(input);
           }
           break;
         case 'd':
@@ -1054,6 +1087,8 @@ final public class CueParser
           else if (contains(input, PATTERN_REM_DISCID))
           {
             parseRemDiscid(input);
+          } else {
+            parseRemOther(input);
           }
           break;
         case 'g':
@@ -1061,7 +1096,13 @@ final public class CueParser
           if (contains(input, PATTERN_REM_GENRE))
           {
             parseRemGenre(input);
+          } else {
+            parseRemOther(input);
           }
+          break;
+        default:
+            
+          parseRemOther(input);
           break;
       }
     }
